@@ -10,4 +10,6 @@ with open('pyali/txt.txt','w') as f:
 
 with open('pyali/txt.txt') as f:
     t=f.read()
-print(t)
+print("nimasile")
+
+print("fuck")
