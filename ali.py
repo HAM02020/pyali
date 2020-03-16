@@ -34,35 +34,25 @@ def gethtml(url):
         r.encoding = r.apparent_encoding
         return r.text
     except:
-<<<<<<< HEAD
-            return "error"
-
-def tofind(html):
-    soup = BeautifulSoup(html,'lxml')
-    uls = soup.find_all('ul',attrs={'class':'sub-item-cont util-clearfix'})#ul 's list
-
-    cList=[]
-    for a in aList:
-        dict = {}
-        dict['url'] = a['href']
-        dict['name'] = a.string
-        cList.append(dict)
-    print(cList)
-    
-    
-=======
         return "exception"
 def casheGethtml(url):
     # 文件名
-    dir='./'+url.replace('.html','').replace('https://www.aliexpress.com/','')+'.txt'
-    #文件不存在的话创建文件，gethtml并写入缓存文件
-    if os.path.exists(dir)==False:
-        with open(dir,'w+',encoding='utf-8') as f:
+    file_name=url.replace('.html','').replace('https://www.aliexpress.com/','')+'.txt'
+    # 初始化缓存文件夹
+    dir = os.path.join(os.curdir, 'cashe')
+    if not os.path.isdir(dir):
+        os.mkdir(dir)
+    #文件路径
+    file_dir = os.path.join(dir, file_name)
+    
+     #文件不存在的话创建文件，gethtml并写入缓存文件
+    if not os.path.exists(file_dir):
+        with open(file_dir,'w+',encoding='utf-8') as f:
             html_str = gethtml(url)
             f.write(html_str)
     # 文件存在 读取缓存
     else:
-        with open(dir,'r+',encoding='utf-8') as f:
+        with open(file_dir,'r+',encoding='utf-8') as f:
             html_str=f.read()
             # 文件存在但是为空
             if html_str.strip()=='':
@@ -75,18 +65,9 @@ def tofind(html):
     uls = soup.find_all('ul', attrs={'class': 'sub-item-cont util-clearfix'})
     print(uls)
 
->>>>>>> 826f349d74b09ac896aab9f958cacf30137ea2b1
 
 if __name__ == "__main__":
 
     url = 'https://www.aliexpress.com/all-wholesale-products.html'
-<<<<<<< HEAD
-    with open('1.txt','r+',encoding='utf-8') as f:
-        html = f.read()
-        if html.strip() == '':
-            html = gethtml(url)
-            f.write(html)
-=======
     html=casheGethtml(url)
->>>>>>> 826f349d74b09ac896aab9f958cacf30137ea2b1
     tofind(html)
