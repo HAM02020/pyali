@@ -16,25 +16,30 @@ def gethtml(url):
         return r.text
         
     except:
-            return ""
+            return "error"
 
 def tofind(html):
-    soup = BeautifulSoup(html,'html.parser')
+    soup = BeautifulSoup(html,'lxml')
     uls = soup.find_all('ul',attrs={'class':'sub-item-cont util-clearfix'})#ul 's list
-    aList=uls.find_all('a')
+
+    cList=[]
     for a in aList:
         dict = {}
         dict['url'] = a['href']
         dict['name'] = a.string
-        list.append(dict)
-    print(aList)
+        cList.append(dict)
+    print(cList)
     
     
 
 if __name__ == "__main__":
     
     url = 'https://www.aliexpress.com/all-wholesale-products.html'
-    html = gethtml(url)
+    with open('1.txt','r+',encoding='utf-8') as f:
+        html = f.read()
+        if html.strip() == '':
+            html = gethtml(url)
+            f.write(html)
     tofind(html)
     
 
