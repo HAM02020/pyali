@@ -78,7 +78,9 @@ def gethtml_withcache(url,header=global_headers,path='',fileName=''):
     
 # 获取分类信息列表
 
-def parseCategories():
+def parseCategories(url):
+    html = gethtml_withcache(url)
+    soup = BeautifulSoup(html, 'lxml')
     containerDiv=soup.find("div",{"class":"util-clearfix cg-container"})
     rootDivs=list(containerDiv.div.contents)
     categories = []
@@ -185,13 +187,48 @@ def diccountInfo(html):
     return [discount,price,originprice]
 
 if __name__ == "__main__":
-
+    # 入口地址
     url = 'www.aliexpress.com/all-wholesale-products.html'
-    html = gethtml_withcache(url)
-    soup = BeautifulSoup(html, 'lxml')
-    categories = parseCategories()
+    # 结构[{'root':{'name':'Women's Clothing',
+    #               'href':'www.ali.com/aaa.html',
+    #               'products':[{'id':'123',
+    #                            'price':'US $9.8,
+    #                             '...' : '...',
+    #                           },
+    #                           {'id':'123',
+    #                            'price':'US $9.8,
+    #                             '...' : '...',
+    #                           },...
+    #                          ]
+    #              },
+    #       'branch':[{'name':'Skirt',
+    #                 'href':'www.ali.com/Skirt.html',
+    #                 'products':[{'id':'123',
+    #                              'price':'US $9.8,
+    #                              '...' : '...',
+    #                             },
+    #                             {'id':'123',
+    #                              'price':'US $9.8,
+    #                              '...' : '...',
+    #                             },...
+    #                            ]
+    #                 },
+    #                {'name':'Skirt',
+    #                 'href':'www.ali.com/Skirt.html',
+    #                 'products':[{'id':'123',
+    #                              'price':'US $9.8,
+    #                              '...' : '...',
+    #                             },
+    #                             {'id':'123',
+    #                              'price':'US $9.8,
+    #                              '...' : '...',
+    #                             },...
+    #                            ]
+    #                 },.....
+    #                ]
+    # ...]
+    categories = parseCategories(url)
     print("done")
-
     # export_csv(categories)
     
     
