@@ -201,31 +201,31 @@ if __name__ == "__main__":
     #                           },...
     #                          ]
     #              },
-    #       'branch':[{'name':'Skirt',
-    #                 'href':'www.ali.com/Skirt.html',
-    #                 'products':[{'id':'123',
-    #                              'price':'US $9.8,
-    #                              '...' : '...',
-    #                             },
-    #                             {'id':'123',
-    #                              'price':'US $9.8,
-    #                              '...' : '...',
-    #                             },...
-    #                            ]
-    #                 },
-    #                {'name':'Skirt',
-    #                 'href':'www.ali.com/Skirt.html',
-    #                 'products':[{'id':'123',
-    #                              'price':'US $9.8,
-    #                              '...' : '...',
-    #                             },
-    #                             {'id':'123',
-    #                              'price':'US $9.8,
-    #                              '...' : '...',
-    #                             },...
-    #                            ]
-    #                 },.....
-    #                ]
+    #       'branchs':[{'name':'Skirt',
+    #                   'href':'www.ali.com/Skirt.html',
+    #                   'products':[{'id':'123',
+    #                                'price':'US $9.8,
+    #                                '...' : '...',
+    #                               },
+    #                               {'id':'123',
+    #                                'price':'US $9.8,
+    #                                '...' : '...',
+    #                               },...
+    #                              ]
+    #                   },
+    #                  {'name':'Skirt',
+    #                   'href':'www.ali.com/Skirt.html',
+    #                   'products':[{'id':'123',
+    #                                'price':'US $9.8,
+    #                                '...' : '...',
+    #                               },
+    #                               {'id':'123',
+    #                                'price':'US $9.8,
+    #                                '...' : '...',
+    #                               },...
+    #                              ]
+    #                   },.....
+    #                  ]
     # ...]
     categories = parseCategories(url)
     print("done")
