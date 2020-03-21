@@ -16,7 +16,7 @@ url = 'https://www.aliexpress.com/all-wholesale-products.html'
 
 refer_param = '.6d42203bM2zpGE'
 download_pages = 0
-thread_num = 50
+thread_num = 500
 threads=[]
 link_queue=Queue()
 lock = threading.RLock()
@@ -64,7 +64,7 @@ def parseUrl(url):
 
 def gethtml_withcache(url):
     global download_pages
-    download_pages+=1
+    download_pages += 1
     pararm = parseUrl(url)
     url = 'https://' + pararm['href']
     fileName = pararm['file_name']
@@ -123,64 +123,6 @@ def gethtml_withcache(url):
             w.close()
         
     return html_str
-
-# def gethtml_withcache(url, header=global_headers, path='', fileName=''):
-#     # 文件名
-#     url = 'https://' + url
-    
-#     if fileName.strip() == '':
-#         file_name = re.findall(r'[\w+\-\.]+\.html', url)[0]
-#     else:
-#         file_name = fileName
-#     # print(file_name)
-#     # 初始化缓存文件夹
-
-    
-#     dir = os.path.join(os.curdir, 'cashe', path)
-
-
-#     with lock:
-#         if not os.path.isdir(dir):
-#             os.makedirs(dir)
-#     # 文件路径
-#     file_dir = os.path.join(dir, file_name)
-#     print("正在获取 = %s"%file_dir)
-
-#     # 文件不存在的话创建文件，gethtml并写入缓存文件
-
-#     if not os.path.exists(file_dir):  
-#         with open(file_dir, 'w+', encoding='utf-8') as f:
-#             html_str = gethtml(url, header)
-#             f.write(html_str)
-#             if '//如果包含 referrer ，且 referrer 非 霸下验证页面' in html_str:
-#                 print("errrrrrorrrrr!!!!，请通过人机验证,并输入cookie")
-#                 tkinter.messagebox.showwarning('警告','请通过人机验证,并输入cookie!!!')
-#                 global_headers['cookie'] = input()
-
-#                 w = open('./cookie/cookie.txt', 'w',encoding='utf-8')
-#                 w.write(global_headers['cookie'])
-#                 w.close()
-
-#                 html_str = gethtml(url, header)
-#                 f.write(html_str)
-                    
-            
-#     # 文件存在 读取缓存
-#     else:
-        
-#         f = open(file_dir, 'r', encoding='utf-8')
-#         html_str = f.read()
-#         f.close()
-#         # 文件存在但是为空
-#         if html_str.strip() == '' or html_str == 'exception' or '//如果包含 referrer ，且 referrer 非 霸下验证页面' in html_str:
-#             print("重写错误页面 %s" % file_dir)
-#             html_str = gethtml(url, header)
-#             w=open(file_dir,'w',encoding='utf-8')
-#             w.write(html_str)
-#             w.close()
-        
-#     return html_str
-
 
 def parseCatories(html):
 
@@ -280,7 +222,7 @@ def downloadProducts():
         product = {}
         product['id'] = re.findall(r'/(\d+)\.html', html)[0]
         product['href']=re.findall(r'"detailPageUrl":"//([\w$\s\.-/]+)',html)
-        product['title'] = re.findall(r'"title":"([\w./?=\-&,\s]+)', html)[0]
+        product['title'] = re.findall(r'"title":"([\w./?=\-&,\s#]+)', html)[0]
         product['keyword'] = re.findall(r'"keywords":"([\w./?=\-&,\s°]+)', html)[0]
         product['imagePath']=re.findall(r'"imagePath":"([\w./?=\-&,\s°:✓]+)',html)[0]
         product['color'] = '\n'.join(re.findall(r'"propertyValueDefinitionName":"([\w$\s\.-]+)', html))
@@ -296,7 +238,7 @@ def downloadProducts():
 
         products.append(product)
         print(product)
-        
+
         link_queue.task_done()
         print('剩余任务 = %s' % link_queue.qsize())
         
