@@ -1,14 +1,21 @@
+import time
 import os
+import threading
+from queue import Queue
 import re
 import csv
 import requests
 from bs4 import BeautifulSoup
 from bs4 import Tag
 
+# 入口地址
+url = 'www.aliexpress.com/all-wholesale-products.html'
+
 # 如果为False 只爬取商品列表，不爬取商品详情
 isparsedetail=True
-refer_param='.5c3548b69Y6Dhl'
+refer_param='.1b9348b6RgB2tU'
 referer_count = 1
+download_pages = 0
 
 global_headers = {
     'authority': 'lighthouse.aliexpress.com',
@@ -23,7 +30,7 @@ global_headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.116 Safari/537.36',
     'Sec-Fetch-Dest': 'script',
     'Origin': 'https://www.aliexpress.com',
-    'cookie': 'ali_apache_id=11.251.144.15.1582389520679.186743.9; _bl_uid=hpkqs6b1xRytd9va088gv2U1hj0s; _ga=GA1.2.294288397.1582389527; aep_common_f=T/h3ppVGE2+ZffsxbJg0HdKsejJ1FF6UaVjxezQue7ar15kkEep1Tg==; cna=JbPmFnhJf3ACAXjntjqicOnt; _gid=GA1.2.1704154986.1584458403; _fbp=fb.1.1584508062963.1300902942; xman_f=cyDTEoLnE127tPyliC0NPStqxFu1hmAqXhAjCWeO+Vb1GFbI9WOhQqMV36EZ4AwQbfsjDqdJLMIFmtAtH755jmfbsYvb95OmD879lUuv1qoQqt+TFDQyOeKyXtGgMhWSGe1L1B5UOyhvfyW1uJweW8kNLRpyHjhssd6cbOQnEeoo5y7OcD0ZhoVZVWnjrS8Qoj9r7mzXupGBzV4BkiZQmfMgAPVapY6XXy2wYOM3ZiKq7tvPYuzh3b6UDN8L3Adj4FhGe7MNGyYWJUsI9lXNozZBsAEvPgqmG56TteKFFO2B7ioxCCwRJkqPzREGQ8rUmY1wIHjO0RsK297GoEziO3VZznLsfY2uZA9Cba17D95ojpC/1tiYmyrFY6GFVIZTaXHuN3ttW4Jy/sC51fhKN/YcbFeieeKzPwtTWf+atjsrM3QkuJEsoQ==; aep_usuc_f=site=glo&c_tp=USD&x_alimid=1864220146&isb=y&region=CN&b_locale=en_US; ali_apache_track=mt=1|mid=cn264863147yetae; acs_usuc_t=x_csrf=ccqcl6xmrldo&acs_rt=48ec89361e524f34a47e14dc3d1b7e85; intl_locale=en_US; xman_t=63ofa8X0Aj0yFiKylXQO0ox69CLXkCg9MdLEQ8HosNforkIUuOlpjTKoKkSgnEiG; ali_apache_tracktmp=; XSRF-TOKEN=3545b1e8-8764-4b70-a418-f7089bfde10a; intl_common_forever=cX4q+GwD5eLrGzpn88uoQlbiVmmv8DZmQVP0FJpwjLAmUl+AIed1dg==; JSESSIONID=28F03D3D9D484378669D4FFB911E5057; aep_history=keywords%5E%0Akeywords%09%0A%0Aproduct_selloffer%5E%0Aproduct_selloffer%094000517751702%094000636440328%094000415085964%094000589759785%094000164591231%094000589759785%0932887602632%094000589759785; _m_h5_tk=3268f885ccbd52f56f63d5578788a574_1584684145482; _m_h5_tk_enc=bfa30084620df2e7e4cb65550fabdfb4; xman_us_f=zero_order=y&x_locale=en_US&x_l=1&last_popup_time=1584506627220&x_user=CN|CN|shopper|ifm|1864220146&no_popup_today=n&x_c_chg=0&x_as_i=%7B%22cookieCacheEffectTime%22%3A1584682250677%2C%22isCookieCache%22%3A%22Y%22%2C%22ms%22%3A%220%22%7D&acs_rt=f8063778288f4c6081056c503099bc3e; isg=BEZGJSqOZCXQsDDny518MfwZlzzIp4ph-NGLFTBu-GlEM-BNnDddcXCJD2__m4J5; l=dBTicH2uQiXuozJEBOfi5m-UJCbTEIdfhsPrgNGl9ICP9WfW5zSCWZ4-Xu8XCnGVHs6D53J6m7-0BPLd7yIEnxv9-cbwV5HmndC..',
+    'cookie': 'ali_apache_id=11.251.144.15.1582389520679.186743.9; _bl_uid=hpkqs6b1xRytd9va088gv2U1hj0s; _ga=GA1.2.294288397.1582389527; aep_common_f=T/h3ppVGE2+ZffsxbJg0HdKsejJ1FF6UaVjxezQue7ar15kkEep1Tg==; cna=JbPmFnhJf3ACAXjntjqicOnt; _gid=GA1.2.1704154986.1584458403; _fbp=fb.1.1584508062963.1300902942; acs_usuc_t=x_csrf=wxlvr9639d54&acs_rt=7cdbb27bdb614de688c88dbb88a08327; intl_locale=en_US; XSRF-TOKEN=0532d07a-6119-4417-8c13-535ee335cd75; aep_history=keywords%5E%0Akeywords%09%0A%0Aproduct_selloffer%5E%0Aproduct_selloffer%094000636440328%094000415085964%094000589759785%094000164591231%094000589759785%0932887602632%094000589759785%0932963657448; _m_h5_tk=835b51d225b0daf302c67e238ef8be09_1584697542895; _m_h5_tk_enc=32cf204e7518f91ab5d1ac3c51440f2f; havana_tgc=eyJjcmVhdGVUaW1lIjoxNTg0Njk1NDM0ODE5LCJsYW5nIjoiZW5fVVMiLCJwYXRpYWxUZ2MiOnsiYWNjSW5mb3MiOnsiMTMiOnsiYWNjZXNzVHlwZSI6MSwibWVtYmVySWQiOjIyMDc1NDkxMjYzNjcsInRndElkIjoiMUlqYVhLQ3psd1pXZDJ2SW9iWHY5dWcifX19fQ; _hvn_login=13; xman_us_t=x_lid=cn264863147yetae&sign=y&x_user=deA6xg8jjKCfouZhT24dZE2Xezz2ZF/BY0ib0Glr+JQ=&ctoken=10777ru6g27ab&need_popup=y&l_source=aliexpress; aep_usuc_t=ber_l=A0; xman_f=dnZc3dmaUTpsBdUxl2ktxg9YY0nqd1sWw7tN7OXltpyobu8GzceMyY1wGlZRXNk/T9Gmx91DKwcQgMAYELMwSlyEYsbrgv1k6X0TC7GvTiKtAsfe5zQg7oWfT4imXUWylI+dKugQN8qctQwTzefxA8c1wrCsORWkHMC/S1aLekT+GRvELOhxmHi166rGrKbPtfYwnfx7cS5vMI5szMapoySFbs05qx3cw8vQPmtxzcaoHM4RlkDhr4j/G5GIGPuL+87PBZzOAobxPYhhFQ5J2s/IAD/HpMk3KFCENa6ng+5KIv1ZaoFZb4yl9JsGfoTU6/DU8hzyjJWObJKIWPMThv1cjI6/ZSXbf3SGXt0yDoUVJMpKjefHsVRjdPxVDSq4a2vfzQMbgjwXYGe6nx6jqxKhUFSRNChi/6c2ZEpcg2byHAzK4XN3DQ==; aep_usuc_f=site=glo&c_tp=USD&x_alimid=1864220146&isb=y&region=CN&b_locale=en_US; ali_apache_track=mt=1|ms=|mid=cn264863147yetae; ali_apache_tracktmp=W_signed=Y; intl_common_forever=LFUARHdOGFaOksqkFvsMcer24KUEUX90+PFuwEYE7jqd+gHkiBRmEw==; JSESSIONID=C4B83EC748936477F9929CD515417507; xman_us_f=x_l=1&x_locale=en_US&no_popup_today=n&x_user=CN|CN|shopper|ifm|1864220146&x_c_chg=0&zero_order=y&acs_rt=f8063778288f4c6081056c503099bc3e&last_popup_time=1584506627220&x_as_i=%7B%22cookieCacheEffectTime%22%3A1584695590972%2C%22isCookieCache%22%3A%22Y%22%2C%22ms%22%3A%220%22%7D; xman_t=i7a7KvTOOmxWX9wqfP1RyNkOozR2lBZP6/8uu7h29/n8x/y3GgT1HgaLcIozO+LwSzRb+5BvzHB8WxUOvlorclCcYK0WkTxzS/WCQTZelaOEwfdNrFPyQlbVM86Y4VyiBL4y/I8z4vK5KbM/oZe3tlsefhb54dX/YkFdLT3D3MQJ+EedqGeMnk8DgjTry1MnxZXT5sGDhc4PaZAl7J845rrwg5mmK2D9aZqrrqlPbKpkY2IKLVp3GEailZ+jdZlRTmNdkKC73Nd8eGzQqs2hi7q8nh5I1+GQSbgV94m1O6u5M3f5c4m+hbfBnkB3iLvdgumaioSVqS3tyXGZ0zjMttBCSYoADnrd9J+a3fLnpllGPJovPjl2AegLOeVJn+67Qn1OdkBAk0MSEixQkt115Dj9tdQXLbHKGdxyPOw0QDgaMg2lC8NBLWI3PZ5VA4ai2Ckjzux579Jir2m9AOPqkkD2h7fq0xJwdvigVqzpNVVV7H9ECCVEW9muZdUwrDuKRXaKlMDz1PU1o2jtacrs5ZgZyDrapWXJkGFirTP/0gcv2CxVNS4FKMduV+QChQejqObSMCY26X4bwPWPpkYlbZuJEuzWngAPfbsJSG6Dd1aCUcrUsTrJcNlemihAFNRcu7gGqWgl4KjHT+usN//olA==; isg=BOfnzjHidYqMt_EgAsbtTgVidhuxbLtOsXoKErlVRHacqARqwTzcn5buzqg2QJPG; l=dBTicH2uQiXuoQjWBOfM5m-UJCbtEIOf1sPrgNGl9ICP92C65rGAWZ4JR58BCnGV3sXwR3J6m7-0BlLLFyznhADo6rheBjn9wd8pR',
     'Upgrade-Insecure-Requests': '1',
 }
 
@@ -34,6 +41,8 @@ def gethtml(url,header=global_headers):
         r = requests.get(url, timeout=30, headers=header)
         r.raise_for_status()
         r.encoding = r.apparent_encoding
+        global download_pages
+        download_pages+=1
         return r.text
     except:
         return "exception"
@@ -137,7 +146,7 @@ def parseGoods(url, rootpath='', branchpath=''):
         # 判断爬不爬商品详情，先不爬的目的是为了先把页面缓存完
         if isparsedetail:
             for url in productHrefs:
-                product = parseDetail(url, os.path.join(path, fileName), refer=headers['referer'])
+                product = parseDetail(url, os.path.join(path), refer=headers['referer'])
                 productList.append(product)
                 print("商品信息：%s" % product)
         # return productList    # 如果不翻页,在这这return
@@ -150,7 +159,7 @@ def parseDetail(url, path='', refer=''):
     headers['referer'] = refer
     headers['Referer'] = refer
     print('正在获取 = %s'%url)
-    html = gethtml_withcache(url, header=headers, path=path, fileName=re.findall(r'/([\d]+.html)', url)[0])
+    html = gethtml_withcache(url, header=headers, path=os.path.join(path,'products'), fileName=re.findall(r'/([\d]+.html)', url)[0])
     
     # 商品信息字典
     product = {}
@@ -187,8 +196,73 @@ def diccountInfo(html):
     return [discount,price,originprice]
 
 if __name__ == "__main__":
-    # 入口地址
-    url = 'www.aliexpress.com/all-wholesale-products.html'
+    start_time = time.time()
+    
+    categories = parseCategories(url)
+    print("done")
+
+    cost_time=time.time()-start_time
+    print('下载了%s个页面,用时%s秒'%(download_pages,categories))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    # export_csv(categories)
+    
     # 结构[{'root':{'name':'Women's Clothing',
     #               'href':'www.ali.com/aaa.html',
     #               'products':[{'id':'123',
@@ -227,8 +301,3 @@ if __name__ == "__main__":
     #                   },.....
     #                  ]
     # ...]
-    categories = parseCategories(url)
-    print("done")
-    # export_csv(categories)
-    
-    
