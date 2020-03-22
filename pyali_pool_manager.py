@@ -16,7 +16,7 @@ MAX_WORKER_NUM=multiprocessing.cpu_count()
 # 入口地址
 url = 'https://www.aliexpress.com/all-wholesale-products.html'
 
-refer_param = '.3f3748b6HOu7Wy'
+refer_param = '.55cb48b6RTiKKe'
 download_pages = 0
 # thread_num = 20
 # threads=[]
@@ -65,8 +65,7 @@ def parseUrl(url):
     return pararm
 
 def gethtml_withcache(url):
-    global download_pages
-    download_pages += 1
+    origin=url
     pararm = parseUrl(url)
     url = 'https://' + pararm['href']
     fileName = pararm['file_name']
@@ -115,12 +114,16 @@ def gethtml_withcache(url):
         html_str = f.read()
         f.close()
         # 文件存在但是为空
-        if html_str.strip() == '' or html_str == 'exception' or '//如果包含 referrer ，且 referrer 非 霸下验证页面'  in html_str or '//将用户正常页面写入到 x5referer ，以备后续跳转返回' in html_str:
+        i=0
+        while html_str.strip() == '' or html_str == 'exception' or '//如果包含 referrer ，且 referrer 非 霸下验证页面'  in html_str or '//将用户正常页面写入到 x5referer ，以备后续跳转返回' in html_str:
             print("重写错误页面 %s" % file_dir)
-            html_str = gethtml(url, headers)
+            html_str = gethtml(url,headers)
             w=open(file_dir,'w',encoding='utf-8')
             w.write(html_str)
             w.close()
+            i += 1
+            if i > 10:
+                break
         
     return html_str
 
@@ -174,7 +177,7 @@ def parseCatories(html):
                 catPages.append(nextPage_url)
     return catPages
 
-def downloadPages(url,result_list):
+def downloadPages(url,result_queue):
     time.sleep(0.2*random.random())
     html = gethtml_withcache(url)
     # html=gethtml(pararm['href'],header=headers)
@@ -182,10 +185,9 @@ def downloadPages(url,result_list):
     
     hrefs = re.findall(r'"productDetailUrl":"//([\w./?=\-&,]+)', html)
     file_names = re.findall(r'/(\d+\.html)\?', html)
-    global productUrls
     for i in range(len(hrefs)):
         url = '%s %s %s' % (hrefs[i], path, file_names[i])
-        result_list.append(url)
+        result_queue.put(url)
 
         
 def diccountInfo(html):
@@ -204,29 +206,37 @@ def diccountInfo(html):
     
 
 
-def downloadProducts(url,result_list):
-    html = gethtml_withcache(url)
-    path=parseUrl(url)['path']
-    # 商品信息字典
-    product = {}
-    product['id'] = re.findall(r'/(\d+)\.html', html)[0]
-    product['href']=re.findall(r'"detailPageUrl":"//([\w$\s\.-/]+)',html)[0]
-    product['title'] = re.findall(r'"title":"([\w./?=\-&,\s#]+)', html)[0]
-    product['keyword'] = re.findall(r'"keywords":"([\w./?=\-&,\s°]+)', html)[0]
-    product['imagePath']=re.findall(r'"imagePath":"([\w./?=\-&,\s°:✓]+)',html)[0]
-    product['color'] = '\n'.join(re.findall(r'"propertyValueDefinitionName":"([\w$\s\.-]+)', html))
-    product['total'] = re.findall(r'totalAvailQuantity":([\w$\s\.-]+)', html)[0]
-    product['like'] = re.findall(r'"itemWishedCount":([\d]+)', html)[0]
-    product['storename'] = re.findall(r'"storeName":"([\w./?=\-&,\s]+)', html)[0]
-    product['storeurl'] = re.findall(r'"storeURL":"//([\w./?=\-&,\s]+)', html)[0]
-    # 获取打折信息
-    discount=diccountInfo(html)
-    product['discount'] = discount[0]
-    product['price'] = discount[1]
-    product['originprice'] = discount[2]
-
-    result_list.append(product)
-    print(product)
+def downloadProducts(url_queue,result_list):
+    while True:
+        url = url_queue.get()
+        if url == 'exit':
+            break
+        html = gethtml_withcache(url)
+        path=parseUrl(url)['path']
+        # 商品信息字典
+        product = {}
+        product['id'] = re.findall(r'/(\d+)\.html', html)[0]
+        product['href']=re.findall(r'"detailPageUrl":"//([\w$\s\.-/]+)',html)[0]
+        product['title'] = re.findall(r'"title":"([\w./?=\-&,\s#]+)', html)[0]
+        product['keyword'] = re.findall(r'"keywords":"([\w./?=\-&,\s°]+)', html)[0]
+        product['imagePath']=re.findall(r'"imagePath":"([\w./?=\-&,\s°:✓]+)',html)[0]
+        product['color'] = '\n'.join(re.findall(r'"propertyValueDefinitionName":"([\w$\s\.-]+)', html))
+        product['total'] = re.findall(r'totalAvailQuantity":([\w$\s\.-]+)', html)[0]
+        product['like'] = re.findall(r'"itemWishedCount":([\d]+)', html)[0]
+        product['storename'] = re.findall(r'"storeName":"([\w./?=\-&,\s]+)', html)[0]
+        product['storeurl'] = re.findall(r'"storeURL":"//([\w./?=\-&,\s]+)', html)[0]
+        # 获取打折信息
+        discount=diccountInfo(html)
+        product['discount'] = discount[0]
+        product['price'] = discount[1]
+        product['originprice'] = discount[2]
+        
+        result_list.append(product)
+        print(product)
+        url_queue.task_done()
+        with open('./cashe/breakpoint resume/break point.txt', 'w',encoding='utf-8') as f:
+            f.write(str(238800-url_queue.qsize()-50))
+        print('剩余任务 = %s' % url_queue.qsize())
     
         
 
@@ -239,27 +249,39 @@ if __name__ == "__main__":
     print(html)
     catPages = parseCatories(html)
     
-    p=Pool(50)
+    p=Pool(100)
     manager = multiprocessing.Manager()
-    productUrls=manager.list()
-    products=manager.list()
+    productUrls=manager.Queue()
+    products = manager.list()
+
+    
     # 把链接放进任务列表
-    for page in catPages:
-        p.apply_async(downloadPages,args=(page,productUrls,))
+    for i in range(len(catPages)):
+        p.apply_async(downloadPages,args=(catPages[i],productUrls,))
     p.close()
     p.join()
-    
-    p=Pool(50)
-    # 把链接放进任务列表    
-    for productUrl in productUrls:
-        p.apply_async(downloadProducts,args=(productUrl,products,))
-    p.close()
-    p.join()
+        
+    with open('./cashe/breakpoint resume/break point.txt', 'r', encoding='utf-8') as f:
+        breakpoint = int(f.read())
+
+    for _ in range(breakpoint):
+        productUrls.get()
+        productUrls.task_done()
+
+    workers = [multiprocessing.Process(target=downloadProducts,args=(productUrls,products)) for i in range(20)]
+    for w in workers:
+        w.start()
+
+    productUrls.join()
+    for _ in workers:
+        productUrls.put('exit')
+    for w in workers:
+        w.join()
 
 
     
 
-    print('商品链接有：%s 个'%len(productUrls))
+    # print('商品链接有：%s 个'%len(productUrls))
     print('products长度为 %s '%len(products))
     cost_time =time.time()-start_time
-    print ('所用时间 %s秒 共下载页面 %s 个'%(cost_time,download_pages))
+    print ('所用时间 %s秒 共下载页面 %s 个'%(cost_time,len(products)+3980))
