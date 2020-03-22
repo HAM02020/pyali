@@ -11,18 +11,17 @@ from bs4 import BeautifulSoup
 from bs4 import Tag
 
 
-MAX_WORKER_NUM=multiprocessing.cpu_count()
+MAX_WORKER_NUM = multiprocessing.cpu_count()
 
 # 入口地址
 url = 'https://www.aliexpress.com/all-wholesale-products.html'
 
-refer_param = '.55cb48b6RTiKKe'
+refer_param = '.177248b6PF6NNL'
 download_pages = 0
 # thread_num = 20
 # threads=[]
 # link_queue=Queue()
 # lock = threading.RLock()
-
 
 
 global_headers = {
@@ -41,7 +40,6 @@ global_headers = {
 }
 
 
-
 def gethtml(url, header=global_headers):
     try:
         r = requests.get(url, timeout=30, headers=header)
@@ -51,12 +49,13 @@ def gethtml(url, header=global_headers):
     except:
         return "exception"
 
+
 def parseUrl(url):
-    pararm={}
+    pararm = {}
     pararmlist = url.split(' ')
     href = pararmlist.pop(0)
     file_name = pararmlist.pop(-1)
-    path=''
+    path = ''
     for arg in pararmlist:
         path = os.path.join(path, arg)
     pararm['href'] = href
@@ -64,16 +63,15 @@ def parseUrl(url):
     pararm['file_name'] = file_name
     return pararm
 
+
 def gethtml_withcache(url):
-    origin=url
     pararm = parseUrl(url)
     url = 'https://' + pararm['href']
     fileName = pararm['file_name']
-    path=pararm['path']
+    path = pararm['path']
     headers = global_headers
     headers['referer'] = pararm['href']
     headers['Referer'] = pararm['href']
-
 
     if fileName.strip() == '':
         file_name = re.findall(r'[\w+\-\.]+\.html', url)[0]
@@ -81,51 +79,50 @@ def gethtml_withcache(url):
         file_name = fileName
     # 初始化缓存文件夹
     dir = os.path.join(os.curdir, 'cashe', path)
-
-
-    
     if not os.path.isdir(dir):
         os.makedirs(dir)
     # 文件路径
     file_dir = os.path.join(dir, file_name)
-    print("正在获取 = %s"%file_dir)
+    print("正在获取 = %s" % file_dir)
 
     # 文件不存在的话创建文件，gethtml并写入缓存文件
 
-    if not os.path.exists(file_dir):  
+    if not os.path.exists(file_dir):
         with open(file_dir, 'w+', encoding='utf-8') as f:
+            time.sleep(random.random()*0.2)
             html_str = gethtml(url, headers)
             f.write(html_str)
             if '//如果包含 referrer ，且 referrer 非 霸下验证页面' in html_str:
                 print("errrrrrorrrrr!!!!，请通过人机验证,并输入cookie")
-                global_headers['cookie'] = input()
-                w = open('./cookie/cookie.txt', 'w',encoding='utf-8')
-                w.write(global_headers['cookie'])
-                w.close()
+                # # global_headers['cookie'] = input()
+                # w = open('./cookie/cookie.txt', 'w', encoding='utf-8')
+                # w.write(global_headers['cookie'])
+                # w.close()
 
                 html_str = gethtml(url, headers)
                 f.write(html_str)
-                    
-            
+
     # 文件存在 读取缓存
     else:
-        
+
         f = open(file_dir, 'r', encoding='utf-8')
         html_str = f.read()
         f.close()
         # 文件存在但是为空
-        i=0
-        while html_str.strip() == '' or html_str == 'exception' or '//如果包含 referrer ，且 referrer 非 霸下验证页面'  in html_str or '//将用户正常页面写入到 x5referer ，以备后续跳转返回' in html_str:
+        i = 0
+        while html_str.strip() == '' or html_str == 'exception' or '//如果包含 referrer ，且 referrer 非 霸下验证页面' in html_str or '//将用户正常页面写入到 x5referer ，以备后续跳转返回' in html_str:
             print("重写错误页面 %s" % file_dir)
-            html_str = gethtml(url,headers)
-            w=open(file_dir,'w',encoding='utf-8')
+            time.sleep(0.2*random.random())
+            html_str = gethtml(url, headers)
+            w = open(file_dir, 'w', encoding='utf-8')
             w.write(html_str)
             w.close()
             i += 1
             if i > 10:
                 break
-        
+
     return html_str
+
 
 def parseCatories(html):
 
@@ -139,20 +136,22 @@ def parseCatories(html):
             continue
         # root_name=itemdiv.h3.a.text
         root_href = itemdiv.h3.a['href'].replace('//', '')
-       
+
         rootCatName = re.findall(r'([\w+\-\.]+)\.html', root_href)[0]
         rootCatId = re.findall(r'/(\d+)/', root_href)[0]
-        
+
         for pageNum in range(1, 11):
             nextPage_param = '?trafficChannel=main&catName=' + rootCatName + '&CatId=' + \
                 rootCatId + '&ltype=wholesale&SortType=default&page=' + \
                 str(pageNum)
-            file_name=rootCatName+str(pageNum)+'.html'
-            nextPage_url = '%s%s %s %s' % (root_href, nextPage_param, rootCatName,file_name)
+            file_name = rootCatName+str(pageNum)+'.html'
+            nextPage_url = '%s%s %s %s' % (
+                root_href, nextPage_param, rootCatName, file_name)
             if pageNum == 1:
-                root_href = itemdiv.h3.a['href'].replace('//', '') + '?spm=a2g0o.category_nav.1.' + str(referer_count) + refer_param
-                referer_count+=1
-                nextPage_url = '%s %s %s'%(root_href,rootCatName,file_name)
+                root_href = itemdiv.h3.a['href'].replace(
+                    '//', '') + '?spm=a2g0o.category_nav.1.' + str(referer_count) + refer_param
+                referer_count += 1
+                nextPage_url = '%s %s %s' % (root_href, rootCatName, file_name)
             catPages.append(nextPage_url)
 
         # branch_name_list=re.findall(r'(?<=html">).+(?=</a>)',str(itemdiv.div.div.ul.contents))
@@ -160,85 +159,100 @@ def parseCatories(html):
             r'(?<=href="//).+\.html', str(itemdiv.div.div.ul.contents))
 
         for i in range(len(branch_href_list)):
-            referer_count+=1
+            referer_count += 1
             catName = re.findall(r'([\w+\-\.]+)\.html', branch_href_list[i])[0]
             catId = re.findall(r'/(\d+)/', branch_href_list[i])[0]
-            
+
             for pageNum in range(1, 11):
                 nextPage_param = '?trafficChannel=main&catName=' + catName + '&CatId=' + \
                     catId + '&ltype=wholesale&SortType=default&page=' + \
                     str(pageNum)
-                file_name=catName+str(pageNum)+'.html'
+                file_name = catName+str(pageNum)+'.html'
                 nextPage_url = '%s%s %s %s %s' % (
-                    branch_href_list[i], nextPage_param, rootCatName, catName,file_name)
+                    branch_href_list[i], nextPage_param, rootCatName, catName, file_name)
                 if pageNum == 1:
-                    branch_href_list[i] = branch_href_list[i] + '?spm=a2g0o.category_nav.1.' + str(referer_count) + refer_param
-                    nextPage_url = '%s %s %s %s'%(branch_href_list[i],rootCatName,catName,file_name)
+                    branch_href_list[i] = branch_href_list[i] + \
+                        '?spm=a2g0o.category_nav.1.' + \
+                        str(referer_count) + refer_param
+                    nextPage_url = '%s %s %s %s' % (
+                        branch_href_list[i], rootCatName, catName, file_name)
                 catPages.append(nextPage_url)
     return catPages
 
-def downloadPages(url,result_queue):
-    time.sleep(0.2*random.random())
-    html = gethtml_withcache(url)
-    # html=gethtml(pararm['href'],header=headers)
-    path = os.path.join(parseUrl(url)['path'],'products')
-    
-    hrefs = re.findall(r'"productDetailUrl":"//([\w./?=\-&,]+)', html)
-    file_names = re.findall(r'/(\d+\.html)\?', html)
-    for i in range(len(hrefs)):
-        url = '%s %s %s' % (hrefs[i], path, file_names[i])
-        result_queue.put(url)
 
-        
+def downloadPages(cat_queue, result_queue):
+    while True:
+        url = cat_queue.get()
+        if url == 'exit':
+            break
+        time.sleep(0.2*random.random())
+        html = gethtml_withcache(url)
+        # html=gethtml(pararm['href'],header=headers)
+        path = os.path.join(parseUrl(url)['path'], 'products')
+
+        hrefs = re.findall(r'"productDetailUrl":"//([\w./?=\-&,]+)', html)
+        file_names = re.findall(r'/(\d+\.html)\?', html)
+        for i in range(len(hrefs)):
+            url = '%s %s %s' % (hrefs[i], path, file_names[i])
+            result_queue.put(url)
+        cat_queue.task_done()
+        with open('./cashe/breakpoint resume/break point.txt', 'w', encoding='utf-8') as f:
+            f.write(str(3980-cat_queue.qsize()-50))
+        print('剩余任务 = %s' % cat_queue.qsize())
+
+
 def diccountInfo(html):
     if len(re.findall(r'"discount":([\w$\s\.-]+)', html)):
-        discount='-'+re.findall(r'"discount":([\w$\s\.-]+)', html)[0] + '%'
+        discount = '-'+re.findall(r'"discount":([\w$\s\.-]+)', html)[0] + '%'
     else:
         discount = '0%'
 
     if discount == '0%':
         price = re.findall(r'"formatedPrice":"([\w$\s\.-]+)', html)[0]
-        originprice=price    
+        originprice = price
     else:
         price = re.findall(r'"formatedActivityPrice":"([\w$\s\.-]+)', html)[0]
         originprice = re.findall(r'"formatedPrice":"([\w$\s\.-]+)', html)[0]
     return [discount, price, originprice]
-    
 
 
-def downloadProducts(url_queue,result_list):
+def downloadProducts(url_queue, result_list):
     while True:
         url = url_queue.get()
         if url == 'exit':
             break
         html = gethtml_withcache(url)
-        path=parseUrl(url)['path']
         # 商品信息字典
         product = {}
         product['id'] = re.findall(r'/(\d+)\.html', html)[0]
-        product['href']=re.findall(r'"detailPageUrl":"//([\w$\s\.-/]+)',html)[0]
+        product['href'] = re.findall(
+            r'"detailPageUrl":"//([\w$\s\.-/]+)', html)[0]
         product['title'] = re.findall(r'"title":"([\w./?=\-&,\s#]+)', html)[0]
-        product['keyword'] = re.findall(r'"keywords":"([\w./?=\-&,\s°]+)', html)[0]
-        product['imagePath']=re.findall(r'"imagePath":"([\w./?=\-&,\s°:✓]+)',html)[0]
-        product['color'] = '\n'.join(re.findall(r'"propertyValueDefinitionName":"([\w$\s\.-]+)', html))
-        product['total'] = re.findall(r'totalAvailQuantity":([\w$\s\.-]+)', html)[0]
+        product['keyword'] = re.findall(
+            r'"keywords":"([\w./?=\-&,\s°]+)', html)[0]
+        product['imagePath'] = re.findall(
+            r'"imagePath":"([\w./?=\-&,\s°:✓]+)', html)[0]
+        product['color'] = '\n'.join(re.findall(
+            r'"propertyValueDefinitionName":"([\w$\s\.-]+)', html))
+        product['total'] = re.findall(
+            r'totalAvailQuantity":([\w$\s\.-]+)', html)[0]
         product['like'] = re.findall(r'"itemWishedCount":([\d]+)', html)[0]
-        product['storename'] = re.findall(r'"storeName":"([\w./?=\-&,\s]+)', html)[0]
-        product['storeurl'] = re.findall(r'"storeURL":"//([\w./?=\-&,\s]+)', html)[0]
+        product['storename'] = re.findall(
+            r'"storeName":"([\w./?=\-&,\s]+)', html)[0]
+        product['storeurl'] = re.findall(
+            r'"storeURL":"//([\w./?=\-&,\s]+)', html)[0]
         # 获取打折信息
-        discount=diccountInfo(html)
+        discount = diccountInfo(html)
         product['discount'] = discount[0]
         product['price'] = discount[1]
         product['originprice'] = discount[2]
-        
+
         result_list.append(product)
         print(product)
         url_queue.task_done()
-        with open('./cashe/breakpoint resume/break point.txt', 'w',encoding='utf-8') as f:
+        with open('./cashe/breakpoint resume/break point.txt', 'w', encoding='utf-8') as f:
             f.write(str(238800-url_queue.qsize()-50))
         print('剩余任务 = %s' % url_queue.qsize())
-    
-        
 
 
 if __name__ == "__main__":
@@ -248,27 +262,46 @@ if __name__ == "__main__":
     html = gethtml(url)
     print(html)
     catPages = parseCatories(html)
-    
-    p=Pool(100)
-    manager = multiprocessing.Manager()
-    productUrls=manager.Queue()
-    products = manager.list()
 
+    manager = multiprocessing.Manager()
+    productUrls = manager.Queue()
+    products = manager.list()
+    catPages_queue = manager.Queue()
     
-    # 把链接放进任务列表
-    for i in range(len(catPages)):
-        p.apply_async(downloadPages,args=(catPages[i],productUrls,))
-    p.close()
-    p.join()
-        
+    if not os.path.isdir('./cashe/breakpoint resume'):
+        os.makedirs('./cashe/breakpoint resume')
+    if not os.path.exists('./cashe/breakpoint resume/break point.txt'):
+        with open('./cashe/breakpoint resume/break point.txt', 'w', encoding='utf-8') as f:
+            f.write('0')
     with open('./cashe/breakpoint resume/break point.txt', 'r', encoding='utf-8') as f:
         breakpoint = int(f.read())
+    
+    # 把链接放进任务列表
+    if breakpoint <= 3980:
+        for page in catPages:
+            catPages_queue.put(page)
+
+        for _ in range(breakpoint):
+            catPages_queue.get()
+            catPages_queue.task_done()
+
+        workers = [multiprocessing.Process(target=downloadPages, args=(
+            catPages_queue, productUrls)) for i in range(20)]
+        for w in workers:
+            w.start()
+
+        catPages_queue.join()
+        for _ in workers:
+            productUrls.put('exit')
+        for w in workers:
+            w.join()
 
     for _ in range(breakpoint):
         productUrls.get()
         productUrls.task_done()
 
-    workers = [multiprocessing.Process(target=downloadProducts,args=(productUrls,products)) for i in range(20)]
+    workers = [multiprocessing.Process(target=downloadProducts, args=(
+        productUrls, products)) for i in range(20)]
     for w in workers:
         w.start()
 
@@ -277,11 +310,7 @@ if __name__ == "__main__":
         productUrls.put('exit')
     for w in workers:
         w.join()
-
-
-    
-
     # print('商品链接有：%s 个'%len(productUrls))
-    print('products长度为 %s '%len(products))
-    cost_time =time.time()-start_time
-    print ('所用时间 %s秒 共下载页面 %s 个'%(cost_time,len(products)+3980))
+    print('products长度为 %s ' % len(products))
+    cost_time = time.time()-start_time
+    print('所用时间 %s秒 共下载页面 %s 个' % (cost_time, len(products)+3980))
