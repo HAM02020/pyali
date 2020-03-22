@@ -1,25 +1,27 @@
 import time
 import datetime
 import os
-import threading
-from queue import Queue
+import random
+import multiprocessing
+from multiprocessing import Pool
 import re
 import csv
 import requests
 from bs4 import BeautifulSoup
 from bs4 import Tag
-import tkinter
-import tkinter.messagebox
+
+
+MAX_WORKER_NUM=multiprocessing.cpu_count()
 
 # 入口地址
 url = 'https://www.aliexpress.com/all-wholesale-products.html'
 
-refer_param = '.516148b6zSlr2d'
+refer_param = '.7a7248b68NRim1'
 download_pages = 0
-thread_num = 20
-threads=[]
-link_queue=Queue()
-lock = threading.RLock()
+# thread_num = 20
+# threads=[]
+# link_queue=Queue()
+# lock = threading.RLock()
 
 productUrls=[]
 
@@ -82,9 +84,9 @@ def gethtml_withcache(url):
     dir = os.path.join(os.curdir, 'cashe', path)
 
 
-    with lock:
-        if not os.path.isdir(dir):
-            os.makedirs(dir)
+    
+    if not os.path.isdir(dir):
+        os.makedirs(dir)
     # 文件路径
     file_dir = os.path.join(dir, file_name)
     print("正在获取 = %s"%file_dir)
@@ -97,9 +99,7 @@ def gethtml_withcache(url):
             f.write(html_str)
             if '//如果包含 referrer ，且 referrer 非 霸下验证页面' in html_str:
                 print("errrrrrorrrrr!!!!，请通过人机验证,并输入cookie")
-                tkinter.messagebox.showwarning('警告','请通过人机验证,并输入cookie!!!')
                 global_headers['cookie'] = input()
-
                 w = open('./cookie/cookie.txt', 'w',encoding='utf-8')
                 w.write(global_headers['cookie'])
                 w.close()
@@ -115,7 +115,7 @@ def gethtml_withcache(url):
         html_str = f.read()
         f.close()
         # 文件存在但是为空
-        if html_str.strip() == '' or html_str == 'exception' or '//如果包含 referrer ，且 referrer 非 霸下验证页面' in html_str:
+        if html_str.strip() == '' or html_str == 'exception' or '//如果包含 referrer ，且 referrer 非 霸下验证页面'  in html_str or '//将用户正常页面写入到 x5referer ，以备后续跳转返回' in html_str:
             print("重写错误页面 %s" % file_dir)
             html_str = gethtml(url, headers)
             w=open(file_dir,'w',encoding='utf-8')
@@ -174,26 +174,19 @@ def parseCatories(html):
                 catPages.append(nextPage_url)
     return catPages
 
-def downloadPages():
-    while True:
-        url = link_queue.get()
-        if url is None:
-            break
-        # 执行的任务
-        
-        html = gethtml_withcache(url)
-        # html=gethtml(pararm['href'],header=headers)
-        path = os.path.join(parseUrl(url)['path'],'products')
-        
-        hrefs = re.findall(r'"productDetailUrl":"//([\w./?=\-&,]+)', html)
-        file_names = re.findall(r'/(\d+\.html)\?', html)
-        global productUrls
-        for i in range(len(hrefs)):
-            url = '%s %s %s' % (hrefs[i], path, file_names[i])
-            productUrls.append(url)
+def downloadPages(url):
+    time.sleep(0.2*random.random())
+    html = gethtml_withcache(url)
+    # html=gethtml(pararm['href'],header=headers)
+    path = os.path.join(parseUrl(url)['path'],'products')
+    
+    hrefs = re.findall(r'"productDetailUrl":"//([\w./?=\-&,]+)', html)
+    file_names = re.findall(r'/(\d+\.html)\?', html)
+    global productUrls
+    for i in range(len(hrefs)):
+        url = '%s %s %s' % (hrefs[i], path, file_names[i])
+        productUrls.append(url)
 
-        link_queue.task_done()
-        print('剩余任务 = %s' % link_queue.qsize())
         
 def diccountInfo(html):
     if len(re.findall(r'"discount":([\w$\s\.-]+)', html)):
@@ -211,36 +204,30 @@ def diccountInfo(html):
     
 products=[]
 
-def downloadProducts():
-    while True:
-        url = link_queue.get()
-        if url is None:
-            break
-        html = gethtml_withcache(url)
-        path=parseUrl(url)['path']
-        # 商品信息字典
-        product = {}
-        product['id'] = re.findall(r'/(\d+)\.html', html)[0]
-        product['href']=re.findall(r'"detailPageUrl":"//([\w$\s\.-/]+)',html)[0]
-        product['title'] = re.findall(r'"title":"([\w./?=\-&,\s#]+)', html)[0]
-        product['keyword'] = re.findall(r'"keywords":"([\w./?=\-&,\s°]+)', html)[0]
-        product['imagePath']=re.findall(r'"imagePath":"([\w./?=\-&,\s°:✓]+)',html)[0]
-        product['color'] = '\n'.join(re.findall(r'"propertyValueDefinitionName":"([\w$\s\.-]+)', html))
-        product['total'] = re.findall(r'totalAvailQuantity":([\w$\s\.-]+)', html)[0]
-        product['like'] = re.findall(r'"itemWishedCount":([\d]+)', html)[0]
-        product['storename'] = re.findall(r'"storeName":"([\w./?=\-&,\s]+)', html)[0]
-        product['storeurl'] = re.findall(r'"storeURL":"//([\w./?=\-&,\s]+)', html)[0]
-        # 获取打折信息
-        discount=diccountInfo(html)
-        product['discount'] = discount[0]
-        product['price'] = discount[1]
-        product['originprice'] = discount[2]
+def downloadProducts(url):
+    html = gethtml_withcache(url)
+    path=parseUrl(url)['path']
+    # 商品信息字典
+    product = {}
+    product['id'] = re.findall(r'/(\d+)\.html', html)[0]
+    product['href']=re.findall(r'"detailPageUrl":"//([\w$\s\.-/]+)',html)[0]
+    product['title'] = re.findall(r'"title":"([\w./?=\-&,\s#]+)', html)[0]
+    product['keyword'] = re.findall(r'"keywords":"([\w./?=\-&,\s°]+)', html)[0]
+    product['imagePath']=re.findall(r'"imagePath":"([\w./?=\-&,\s°:✓]+)',html)[0]
+    product['color'] = '\n'.join(re.findall(r'"propertyValueDefinitionName":"([\w$\s\.-]+)', html))
+    product['total'] = re.findall(r'totalAvailQuantity":([\w$\s\.-]+)', html)[0]
+    product['like'] = re.findall(r'"itemWishedCount":([\d]+)', html)[0]
+    product['storename'] = re.findall(r'"storeName":"([\w./?=\-&,\s]+)', html)[0]
+    product['storeurl'] = re.findall(r'"storeURL":"//([\w./?=\-&,\s]+)', html)[0]
+    # 获取打折信息
+    discount=diccountInfo(html)
+    product['discount'] = discount[0]
+    product['price'] = discount[1]
+    product['originprice'] = discount[2]
 
-        products.append(product)
-        print(product)
-
-        link_queue.task_done()
-        print('剩余任务 = %s' % link_queue.qsize())
+    products.append(product)
+    print(product)
+    
         
 
 
@@ -250,41 +237,35 @@ if __name__ == "__main__":
         global_headers['cookie'] = f.read()
     html = gethtml(url)
     print(html)
-    catPages=parseCatories(html)
-    # 把链接放进任务列表
-    for page in catPages:
-        link_queue.put(page)
+    catPages = parseCatories(html)
+    
+    p=Pool(2)
 
-    for i in range(thread_num):
-        t = threading.Thread(target=downloadPages)
-        t.start()
-        threads.append(t)
-    # 阻塞线程，直到上一步完成
-    link_queue.join()
-    # 任务完成 通知线程退出
-    for i in range(thread_num):
-        link_queue.put(None)
-    for t in threads:
-        t.join()
-    threads.clear()
+    start=0
+    for i in range(len(catPages)):
+        if i % 99 == 0:
+            
+            p.map(downloadPages, catPages[start:start + 100])
+            start += 100
+            print('休眠5秒')
+            time.sleep(5)
+        if i == len(catPages) - 1:
+            p.map(downloadPages, catPages[start:len(catPages)])
+    # 把链接放进任务列表
+    # for page in catPages:
+    
+        # p.apply_async(downloadPages,args=(page,))
+    p.close()
+    p.join()
+    
+    
     # # 把链接放进任务列表    
     # for productUrl in productUrls:
-    #     link_queue.put(productUrl)
+    #     p.apply_async(downloadProducts,args=(productUrl,))
+    # p.close()
+    # p.join()
 
-    # for i in range(thread_num):
-    #     t = threading.Thread(target=downloadProducts)
-    #     t.start()
-    #     threads.append(t)
 
-    # # 阻塞线程
-    # link_queue.join()
-
-    # # 任务完成 通知线程退出
-    # for i in range(thread_num):
-    #     link_queue.put(None)
-    # for t in threads:
-    #     t.join()
-    # threads.clear()
     
 
     print('商品链接有：%s 个'%len(productUrls))
